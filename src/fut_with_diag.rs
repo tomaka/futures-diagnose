@@ -1,6 +1,7 @@
 use crate::{LEVEL, ctxt_with_diag, current_task};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::{future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
+use std::time::{Instant, Duration};
 
 /// Wraps around `T` and adds diagnostics to it.
 pub(crate) struct WrappedFut<T> {
@@ -51,15 +52,17 @@ where
         }
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
-        log::log!(LEVEL, "Entering poll for {:?}", my_task_id);
-        let outcome = {
+        let (outcome, elapsed) = {
             let mut cx = ctxt_with_diag::WakerWithDiag::from(cx.waker());
             let mut cx = cx.context();
 
+            log::log!(LEVEL, "Entering poll for {:?}", my_task_id);
             let _guard2 = current_task::enter(current_task::CurrentTask::Task(my_task_id));
-            Future::poll(Pin::new(&mut self.inner), &mut cx)
+            let before = Instant::now();
+            let outcome = Future::poll(Pin::new(&mut self.inner), &mut cx);
+            (outcome, before.elapsed())
         };
-        log::log!(LEVEL, "Leaving poll for {:?}", my_task_id);
+        log::log!(LEVEL, "Leaving poll for {:?}; took {:?}", my_task_id, elapsed);
         if let Poll::Ready(_) = outcome {
             log::log!(LEVEL, "Task end: {:?}", my_task_id);
         }
