@@ -1,8 +1,8 @@
-use std::marker::PhantomData;
+use std::{cell::RefCell, marker::PhantomData, mem};
 
 /// Returns the context we are currently in.
 pub fn current_task() -> CurrentTask {
-    CURRENT.with(|v| *v)
+    CURRENT.with(|v| *v.borrow())
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -18,12 +18,22 @@ pub(crate) struct EnterGuard {
 }
 
 pub(crate) fn enter(state: CurrentTask) -> EnterGuard {
-    debug_assert_ne!(state, CurrentTask::None);
-    unimplemented!()
+    let previous_value = CURRENT.with(move |v| mem::replace(&mut *v.borrow_mut(), state));
+    EnterGuard {
+        previous_value,
+        marker: PhantomData,
+    }
+}
+
+impl Drop for EnterGuard {
+    fn drop(&mut self) {
+        // TODO: wrong because of mem::forget
+        CURRENT.with(move |v| *v.borrow_mut() = self.previous_value);
+    }
 }
 
 thread_local! {
-    static CURRENT: CurrentTask = CurrentTask::None;
+    static CURRENT: RefCell<CurrentTask> = RefCell::new(CurrentTask::None);
 }
 
 #[cfg(test)]

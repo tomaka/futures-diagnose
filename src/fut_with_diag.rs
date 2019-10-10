@@ -1,17 +1,20 @@
 use crate::{LEVEL, ctxt_with_diag, current_task};
+use pin_project::pin_project;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::{future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
-use std::time::{Instant, Duration};
+use std::time::Instant;
 
 /// Wraps around `T` and adds diagnostics to it.
-pub(crate) struct WrappedFut<T> {
+#[pin_project]
+pub struct DiagnoseFuture<T> {
+    #[pin]
     inner: T,
     task_id: u64,
     /// Thread where we polled this future the latest.
     previous_thread: Option<ThreadId>,
 }
 
-impl<T> WrappedFut<T> {
+impl<T> DiagnoseFuture<T> {
     pub fn new(inner: T) -> Self {
         let new_task_id = {
             static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(0);
@@ -23,7 +26,7 @@ impl<T> WrappedFut<T> {
 
         log::log!(LEVEL, "Task start: {:?}", new_task_id);
 
-        WrappedFut {
+        DiagnoseFuture {
             inner,
             task_id: new_task_id,
             previous_thread: None,
@@ -31,17 +34,18 @@ impl<T> WrappedFut<T> {
     }
 }
 
-impl<T> Future for WrappedFut<T>
+impl<T> Future for DiagnoseFuture<T>
 where
-    T: Future<Output = ()> + Unpin,
+    T: Future,
 {
-    type Output = ();
+    type Output = T::Output;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<()> {
-        let my_task_id = self.task_id;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let this = self.project();
+        let my_task_id = *this.task_id;
 
         let current_thread_id = std::thread::current().id();
-        match &mut self.previous_thread {
+        match this.previous_thread {
             Some(id) if *id == current_thread_id => {},
             Some(id) => {
                 log::log!(LEVEL, "Task {:?} changed thread poll from {:?} to {:?}",
@@ -52,17 +56,19 @@ where
         }
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
-        let (outcome, elapsed) = {
+        let (outcome, before, after) = {
             let mut cx = ctxt_with_diag::WakerWithDiag::from(cx.waker());
             let mut cx = cx.context();
 
-            log::log!(LEVEL, "Entering poll for {:?}", my_task_id);
-            let _guard2 = current_task::enter(current_task::CurrentTask::Task(my_task_id));
+            let ref_instant = *REF_INSTANT;
             let before = Instant::now();
-            let outcome = Future::poll(Pin::new(&mut self.inner), &mut cx);
-            (outcome, before.elapsed())
+            log::log!(LEVEL, "At {:?}, entering poll for {:?}", before - ref_instant, my_task_id);
+            let _guard2 = current_task::enter(current_task::CurrentTask::Task(my_task_id));
+            let outcome = Future::poll(this.inner, &mut cx);
+            let after = Instant::now();
+            (outcome, before, after)
         };
-        log::log!(LEVEL, "Leaving poll for {:?}; took {:?}", my_task_id, elapsed);
+        log::log!(LEVEL, "At {:?}, leaving poll for {:?}; took {:?}", after - *REF_INSTANT, my_task_id, after - before);
         if let Poll::Ready(_) = outcome {
             log::log!(LEVEL, "Task end: {:?}", my_task_id);
         }
@@ -70,5 +76,6 @@ where
     }
 }
 
-impl<T> Unpin for WrappedFut<T> {
+lazy_static::lazy_static! {
+    static ref REF_INSTANT: Instant = Instant::now();
 }
