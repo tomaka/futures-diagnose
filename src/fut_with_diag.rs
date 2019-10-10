@@ -57,8 +57,9 @@ where
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
         let (outcome, before, after) = {
-            let mut cx = ctxt_with_diag::WakerWithDiag::from(cx.waker());
-            let mut cx = cx.context();
+            let waker = ctxt_with_diag::WakerWithDiag::new(cx.waker(), my_task_id);
+            let waker = waker.into_waker();
+            let mut cx = Context::from_waker(&waker);
 
             let ref_instant = *REF_INSTANT;
             let before = Instant::now();

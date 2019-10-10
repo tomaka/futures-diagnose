@@ -1,24 +1,30 @@
-use std::{task::Context, task::Waker};
+use crate::LEVEL;
+use std::{sync::Arc, task::Context, task::Waker};
 
-// TODO: not actually implemented; the code is a dummy
-// TODO: this could be implemented in a more unsafe but performant way
-
-/// Wraps around a `&Waker` but logs a message every time the task is waken up.
-pub struct WakerWithDiag<'a> {
-    inner: &'a Waker,
+/// Wraps around a `Waker` but logs a message every time the task is waken up.
+pub struct WakerWithDiag {
+    inner: Waker,
+    task_id: u64,
 }
 
-impl<'a> From<&'a Waker> for WakerWithDiag<'a> {
-    fn from(inner: &'a Waker) -> WakerWithDiag<'a> {
-        WakerWithDiag {
-            inner
-        }
+impl futures::task::ArcWake for WakerWithDiag {
+    fn wake_by_ref(arc_self: &Arc<Self>) {
+        //log::log!(LEVEL, "At {:?}, task  got woken up {:?}", before - ref_instant, my_task_id);
+        log::log!(LEVEL, "Task {:?} got woken up", arc_self.task_id);
+        arc_self.inner.wake_by_ref()
     }
 }
 
-impl<'a> WakerWithDiag<'a> {
-    pub fn context(&mut self) -> Context {
-        Context::from_waker(self.inner)
+impl WakerWithDiag {
+    pub fn new(inner: &Waker, task_id: u64) -> WakerWithDiag {
+        WakerWithDiag {
+            inner: inner.clone(),
+            task_id,
+        }
+    }
+
+    pub fn into_waker(self) -> Waker {
+        futures::task::waker(Arc::new(self))
     }
 }
 
