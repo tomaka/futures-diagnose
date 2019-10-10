@@ -1,7 +1,7 @@
-use crate::{LEVEL, ctxt_with_diag, current_task};
+use crate::{LEVEL, absolute_time, ctxt_with_diag, current_task};
 use pin_project::pin_project;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::{future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
+use std::{borrow::Cow, future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
 use std::time::Instant;
 
 /// Wraps around `T` and adds diagnostics to it.
@@ -9,26 +9,19 @@ use std::time::Instant;
 pub struct DiagnoseFuture<T> {
     #[pin]
     inner: T,
-    task_id: u64,
+    task_id: Cow<'static, str>,
     /// Thread where we polled this future the latest.
     previous_thread: Option<ThreadId>,
 }
 
 impl<T> DiagnoseFuture<T> {
-    pub fn new(inner: T) -> Self {
-        let new_task_id = {
-            static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(0);
-            let id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
-            // If `id` is `u64::max_value` then we had an overflow.
-            assert_ne!(id, u64::max_value());
-            id
-        };
-
-        log::log!(LEVEL, "Task start: {:?}", new_task_id);
+    pub fn new(inner: T, name: impl Into<Cow<'static, str>>) -> Self {
+        let name = name.into();
+        log::log!(LEVEL, "Task start: {:?}", name);
 
         DiagnoseFuture {
             inner,
-            task_id: new_task_id,
+            task_id: name,
             previous_thread: None,
         }
     }
@@ -42,7 +35,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
-        let my_task_id = *this.task_id;
+        let my_task_id = this.task_id;      // TODO: why this variable?
 
         let current_thread_id = std::thread::current().id();
         match this.previous_thread {
@@ -56,27 +49,23 @@ where
         }
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
+        let ref_instant = absolute_time::absolute_instant();
         let (outcome, before, after) = {
-            let waker = ctxt_with_diag::WakerWithDiag::new(cx.waker(), my_task_id);
+            let waker = ctxt_with_diag::WakerWithDiag::new(cx.waker(), my_task_id.clone());
             let waker = waker.into_waker();
             let mut cx = Context::from_waker(&waker);
 
-            let ref_instant = *REF_INSTANT;
             let before = Instant::now();
             log::log!(LEVEL, "At {:?}, entering poll for {:?}", before - ref_instant, my_task_id);
-            let _guard2 = current_task::enter(current_task::CurrentTask::Task(my_task_id));
+            let _guard2 = current_task::enter(current_task::CurrentTask::Task(my_task_id.clone()));
             let outcome = Future::poll(this.inner, &mut cx);
             let after = Instant::now();
             (outcome, before, after)
         };
-        log::log!(LEVEL, "At {:?}, leaving poll for {:?}; took {:?}", after - *REF_INSTANT, my_task_id, after - before);
+        log::log!(LEVEL, "At {:?}, leaving poll for {:?}; took {:?}", after - ref_instant, my_task_id, after - before);
         if let Poll::Ready(_) = outcome {
             log::log!(LEVEL, "Task end: {:?}", my_task_id);
         }
         outcome
     }
-}
-
-lazy_static::lazy_static! {
-    static ref REF_INSTANT: Instant = Instant::now();
 }

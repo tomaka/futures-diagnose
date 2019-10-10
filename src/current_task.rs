@@ -1,15 +1,15 @@
-use std::{cell::RefCell, marker::PhantomData, mem};
+use std::{borrow::Cow, cell::RefCell, marker::PhantomData, mem};
 
 /// Returns the context we are currently in.
 pub fn current_task() -> CurrentTask {
-    CURRENT.with(|v| *v.borrow())
+    CURRENT.with(|v| v.borrow().clone())
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CurrentTask {
     None,
     System,
-    Task(u64),
+    Task(Cow<'static, str>),
 }
 
 pub(crate) struct EnterGuard {
@@ -28,7 +28,8 @@ pub(crate) fn enter(state: CurrentTask) -> EnterGuard {
 impl Drop for EnterGuard {
     fn drop(&mut self) {
         // TODO: wrong because of mem::forget
-        CURRENT.with(move |v| *v.borrow_mut() = self.previous_value);
+        // TODO: don't clone previous_value
+        CURRENT.with(move |v| *v.borrow_mut() = self.previous_value.clone());
     }
 }
 

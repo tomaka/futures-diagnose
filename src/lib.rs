@@ -1,9 +1,10 @@
 use futures::future::FutureObj;
 use futures::task::{Spawn, SpawnError};
-use std::future::Future;
+use std::{borrow::Cow, future::Future};
 
 pub use fut_with_diag::DiagnoseFuture;
 
+mod absolute_time;
 mod ctxt_with_diag;
 mod current_task;
 mod fut_with_diag;
@@ -11,11 +12,11 @@ mod fut_with_diag;
 const LEVEL: log::Level = log::Level::Debug;
 
 pub trait FutureExt: Future {
-    fn with_diagnostics(self) -> DiagnoseFuture<Self>
+    fn with_diagnostics(self, name: impl Into<Cow<'static, str>>) -> DiagnoseFuture<Self>
     where
         Self: Sized
     {
-        DiagnoseFuture::new(self)
+        DiagnoseFuture::new(self, name)
     }
 }
 
@@ -40,8 +41,9 @@ where
     T: Spawn,
 {
     fn spawn_obj(&mut self, future: FutureObj<'static, ()>) -> Result<(), SpawnError> {
-        let wrapped = Box::pin(fut_with_diag::DiagnoseFuture::new(future));
-        self.inner.spawn_obj(FutureObj::from(wrapped))
+        /*let wrapped = Box::pin(fut_with_diag::DiagnoseFuture::new(future));
+        self.inner.spawn_obj(FutureObj::from(wrapped))*/
+        unimplemented!()
     }
 
     fn status(&self) -> Result<(), SpawnError> {
