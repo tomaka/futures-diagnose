@@ -1,10 +1,10 @@
 use std::time::{Duration, Instant};
 
-/// Returns the number of nanoseconds that have elapsed between `time` and an arbitrary point in
-/// time in the past.
+/// Returns the number of nanoseconds that have elapsed between `time` and the first time this
+/// function has ever been called in the program.
 ///
-/// Note that since the reference instant is lazily-generated, the following code will generate
-/// the same value for `bef_ns` and `after_ns`:
+/// Note that, consequently, keep in mind that the value of `diff` in the following code will be
+/// almost 0:
 ///
 /// ```ignore
 /// let before = Instant::now();
@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 /// 
 /// let bef_ns = elapsed_since_abs_time(before);
 /// let after_ns = elapsed_since_abs_time(after);
+/// let diff = after_ns - bef_ns;
 /// ```
 ///
 /// To remedy this, please call `elapsed_since_abs_time` as soon as possible.
