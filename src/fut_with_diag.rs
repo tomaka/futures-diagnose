@@ -17,7 +17,8 @@ pub struct DiagnoseFuture<T> {
 impl<T> DiagnoseFuture<T> {
     pub fn new(inner: T, name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
-        log::log!(LEVEL, "Task start: {:?}", name);
+        let point_in_time = absolute_time::now_since_abs_time();
+        log::log!(LEVEL, "At {:?}, task start: {:?}", point_in_time, name);
 
         DiagnoseFuture {
             inner,
@@ -49,22 +50,22 @@ where
         }
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
-        let ref_instant = absolute_time::absolute_instant();
         let (outcome, before, after) = {
             let waker = ctxt_with_diag::WakerWithDiag::new(cx.waker(), my_task_id.clone());
             let waker = waker.into_waker();
             let mut cx = Context::from_waker(&waker);
 
             let before = Instant::now();
-            log::log!(LEVEL, "At {:?}, entering poll for {:?}", before - ref_instant, my_task_id);
+            log::log!(LEVEL, "At {:?}, entering poll for {:?}", absolute_time::elapsed_since_abs_time(before), my_task_id);
             let _guard2 = current_task::enter(current_task::CurrentTask::Task(my_task_id.clone()));
             let outcome = Future::poll(this.inner, &mut cx);
             let after = Instant::now();
             (outcome, before, after)
         };
-        log::log!(LEVEL, "At {:?}, leaving poll for {:?}; took {:?}", after - ref_instant, my_task_id, after - before);
+        let after_abs = absolute_time::elapsed_since_abs_time(after);
+        log::log!(LEVEL, "At {:?}, leaving poll for {:?}; took {:?}", after_abs, my_task_id, after - before);
         if let Poll::Ready(_) = outcome {
-            log::log!(LEVEL, "Task end: {:?}", my_task_id);
+            log::log!(LEVEL, "At {:?}, task end: {:?}", after_abs, my_task_id);
         }
         outcome
     }

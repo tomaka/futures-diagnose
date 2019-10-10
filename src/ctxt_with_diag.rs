@@ -1,5 +1,5 @@
-use crate::{LEVEL, current_task};
-use std::{borrow::Cow, sync::Arc, task::Context, task::Waker};
+use crate::{LEVEL, absolute_time, current_task};
+use std::{borrow::Cow, sync::Arc, task::Context, task::Waker, time::Instant};
 
 /// Wraps around a `Waker` but logs a message every time the task is waken up.
 pub struct WakerWithDiag {
@@ -10,10 +10,11 @@ pub struct WakerWithDiag {
 impl futures::task::ArcWake for WakerWithDiag {
     fn wake_by_ref(arc_self: &Arc<Self>) {
         //log::log!(LEVEL, "At {:?}, task  got woken up {:?}", before - ref_instant, my_task_id);
+        let point_in_time = absolute_time::now_since_abs_time();
         let current_thread_id = std::thread::current().id();
         let cur_thread = std::thread::current();
         let current_thread_name = cur_thread.name();
-        log::log!(LEVEL, "Task {:?} got woken up by {:?}; name = {:?}; task = {:?}", arc_self.task_id, current_thread_id, current_thread_name, current_task::current_task());
+        log::log!(LEVEL, "At {:?}, task {:?} got woken up by {:?}; name = {:?}; task = {:?}", point_in_time, arc_self.task_id, current_thread_id, current_thread_name, current_task::current_task());
         arc_self.inner.wake_by_ref()
     }
 }
