@@ -17,6 +17,9 @@ use std::time::{Duration, Instant};
 ///
 /// To remedy this, please call `elapsed_since_abs_time` as soon as possible.
 pub(crate) fn elapsed_since_abs_time(time: Instant) -> u64 {
+    lazy_static::lazy_static! {
+        static ref REF_INSTANT: Instant = Instant::now();
+    }
     let ref_instant = *REF_INSTANT;
     let dur = if time > ref_instant {
         time - ref_instant
@@ -29,8 +32,4 @@ pub(crate) fn elapsed_since_abs_time(time: Instant) -> u64 {
 /// Shortcut for `elapsed_since_abs_time(Instant::now())`.
 pub(crate) fn now_since_abs_time() -> u64 {
     elapsed_since_abs_time(Instant::now())
-}
-
-lazy_static::lazy_static! {
-    static ref REF_INSTANT: Instant = Instant::now();
 }
