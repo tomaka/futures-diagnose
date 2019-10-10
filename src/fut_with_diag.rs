@@ -1,7 +1,6 @@
 use crate::{LEVEL, TARGET, absolute_time, ctxt_with_diag, current_task};
 use pin_project::pin_project;
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::{borrow::Cow, future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
 use std::time::Instant;
 
@@ -54,8 +53,7 @@ where
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
         let (outcome, before, after) = {
-            let waker = ctxt_with_diag::WakerWithDiag::new(cx.waker(), this.task_id.clone());
-            let waker = waker.into_waker();
+            let waker = ctxt_with_diag::waker_with_diag(cx.waker().clone(), this.task_id.clone());
             let mut cx = Context::from_waker(&waker);
 
             let before = Instant::now();
