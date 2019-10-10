@@ -28,8 +28,8 @@ pub(crate) fn enter(state: CurrentTask) -> EnterGuard {
 impl Drop for EnterGuard {
     fn drop(&mut self) {
         // TODO: wrong because of mem::forget
-        // TODO: don't clone previous_value
-        CURRENT.with(move |v| *v.borrow_mut() = self.previous_value.clone());
+        let previous_value = mem::replace(&mut self.previous_value, CurrentTask::None);
+        CURRENT.with(move |v| *v.borrow_mut() = previous_value);
     }
 }
 
