@@ -13,7 +13,7 @@ mod log_out;
 pub trait FutureExt: Future {
     fn with_diagnostics(self, name: impl Into<Cow<'static, str>>) -> DiagnoseFuture<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         DiagnoseFuture::new(self, name)
     }
@@ -29,9 +29,7 @@ pub struct DiagSpawn<T> {
 impl<T> DiagSpawn<T> {
     /// Wraps around `inner`.
     pub fn new(inner: T) -> Self {
-        DiagSpawn {
-            inner
-        }
+        DiagSpawn { inner }
     }
 }
 

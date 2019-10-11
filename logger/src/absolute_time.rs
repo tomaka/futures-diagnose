@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 /// let before = Instant::now();
 /// thread::sleep(Duration::from_secs(5));
 /// let after = Instant::now();
-/// 
+///
 /// let bef_ns = elapsed_since_abs_time(before);
 /// let after_ns = elapsed_since_abs_time(after);
 /// let diff = after_ns - bef_ns;
@@ -28,7 +28,9 @@ pub(crate) fn elapsed_since_abs_time(time: Instant) -> u64 {
     } else {
         Duration::new(0, 0)
     };
-    dur.as_secs().saturating_mul(1_000_000_000).saturating_add(u64::from(dur.subsec_nanos()))
+    dur.as_secs()
+        .saturating_mul(1_000_000_000)
+        .saturating_add(u64::from(dur.subsec_nanos()))
 }
 
 /// Shortcut for `elapsed_since_abs_time(Instant::now())`.
