@@ -1,14 +1,5 @@
-[package]
-name = "futures-diagnose-exec"
-version = "0.1.0"
-authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
-edition = "2018"
-description = "Wraps around a Spawn and provides lots of diagnostics"
-
-[dependencies]
-futures-preview = "0.3.0-alpha.18"
-lazy_static = "1.4.0"
-log = "0.4.8"
-# TODO: we use an old version because of a Cargo issue with dependencies resolution in the project
-# that uses futures-diagnose-exec
-pin-project = "0.4.0-alpha.7"
+[workspace]
+members = [
+    "common",
+    "logger",
+]

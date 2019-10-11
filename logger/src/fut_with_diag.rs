@@ -1,4 +1,4 @@
-use crate::{LEVEL, TARGET, absolute_time, ctxt_with_diag, current_task};
+use crate::{ctxt_with_diag, current_task, log_out};
 use pin_project::pin_project;
 use std::fmt;
 use std::{borrow::Cow, future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
@@ -11,8 +11,8 @@ pub struct DiagnoseFuture<T> {
     /// The inner future doing the actual work.
     #[pin]
     inner: T,
-    /// Name of the task.
-    task_id: Cow<'static, str>,
+    /// Task we are manipulating.
+    task: futures_diagnose_exec_common::Task,
     /// Thread where we polled this future the latest.
     previous_thread: Option<ThreadId>,
 }
@@ -20,12 +20,15 @@ pub struct DiagnoseFuture<T> {
 impl<T> DiagnoseFuture<T> {
     pub fn new(inner: T, name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
-        let point_in_time = absolute_time::now_since_abs_time();
-        log::log!(target: TARGET, LEVEL, "At {:?}, task start: {:?}", point_in_time, name);
+        let task = futures_diagnose_exec_common::Task {
+            name: name.to_string(),       // TODO: optimize
+            id: 0,      // FIXME:
+        };
+        log_out::log(futures_diagnose_exec_common::MessageData::TaskStart(task.clone()));
 
         DiagnoseFuture {
             inner,
-            task_id: name,
+            task,
             previous_thread: None,
         }
     }
@@ -40,7 +43,8 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
 
-        let current_thread_id = std::thread::current().id();
+        // TODO: restore
+        /*let current_thread_id = std::thread::current().id();
         match this.previous_thread {
             Some(id) if *id == current_thread_id => {},
             Some(id) => {
@@ -49,24 +53,24 @@ where
                 *id = current_thread_id;
             },
             v @ None => *v = Some(current_thread_id),
-        }
+        }*/
 
         let _guard = current_task::enter(current_task::CurrentTask::System);
-        let (outcome, before, after) = {
-            let waker = ctxt_with_diag::waker_with_diag(cx.waker().clone(), this.task_id.clone());
+        let before = Instant::now();
+        let outcome = {
+            let waker = ctxt_with_diag::waker_with_diag(cx.waker().clone(), this.task.clone());
             let mut cx = Context::from_waker(&waker);
-
-            let before = Instant::now();
-            log::log!(target: TARGET, LEVEL, "At {:?}, entering poll for {:?}", absolute_time::elapsed_since_abs_time(before), this.task_id);
-            let _guard2 = current_task::enter(current_task::CurrentTask::Task(this.task_id.clone()));
-            let outcome = Future::poll(this.inner, &mut cx);
-            let after = Instant::now();
-            (outcome, before, after)
+            log_out::log(futures_diagnose_exec_common::MessageData::PollStart(this.task.clone()));
+            //let _guard2 = current_task::enter(current_task::CurrentTask::Task(this.task_id.clone()));
+            Future::poll(this.inner, &mut cx)
         };
-        let after_abs = absolute_time::elapsed_since_abs_time(after);
-        log::log!(target: TARGET, LEVEL, "At {:?}, leaving poll for {:?}; took {:?}", after_abs, this.task_id, after - before);
+        let after = Instant::now();
+        log_out::log(futures_diagnose_exec_common::MessageData::PollEnd {
+            task: this.task.clone(),
+            poll_duration: after - before,
+        });
         if let Poll::Ready(_) = outcome {
-            log::log!(target: TARGET, LEVEL, "At {:?}, task end: {:?}", after_abs, this.task_id);
+            log_out::log(futures_diagnose_exec_common::MessageData::TaskEnd(this.task.clone()));
         }
         outcome
     }

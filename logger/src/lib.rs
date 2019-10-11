@@ -8,9 +8,7 @@ mod absolute_time;
 mod ctxt_with_diag;
 mod current_task;
 mod fut_with_diag;
-
-const LEVEL: log::Level = log::Level::Debug;
-const TARGET: &str = "futures-profile";
+mod log_out;
 
 pub trait FutureExt: Future {
     fn with_diagnostics(self, name: impl Into<Cow<'static, str>>) -> DiagnoseFuture<Self>
