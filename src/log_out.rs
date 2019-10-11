@@ -13,48 +13,66 @@ pub fn log_poll(task_name: &str, task_id: u64, start: Instant, end: Instant, fir
     let start_ts = absolute_time::elapsed_since_abs_time(start) / 1_000;
     let end_ts = absolute_time::elapsed_since_abs_time(end) / 1_000;
 
-    if !first_time {
+    let cname = None;/*match end_ts - start_ts {
+        0 ..= 999 => Some("good"),
+        1_000 ..= 19_999 => Some("bad"),
+        _ => Some("terrible"),
+    };*/    // TODO: colors end up being unreadable
+
+    write_record(&Record {
+        cat: "polling",
+        name: task_name,
+        ph: "B",
+        pid: 0,
+        tid,
+        ts: start_ts,
+        dur: None,
+        bp: None,
+        id: None,
+        arg: None,
+        cname,
+    });
+
+    // TODO: I don't understand the documentation; no idea if that code is correct
+    if !(first_time && last_time) {
         write_record(&Record {
             cat: "polling",
             name: task_name,
-            ph: "f",
+            ph: if first_time {
+                "s"
+            } else if last_time {
+                "f"
+            } else {
+                "t"
+            },
             pid: 0,
             tid,
-            ts: start_ts,
+            ts: if first_time {
+                end_ts
+            } else {
+                start_ts
+            },
             dur: None,
-            bp: None,
+            bp: Some("e"),
             id: Some(task_id),
             arg: None,
+            cname: None,
         });
     }
 
     write_record(&Record {
         cat: "polling",
         name: task_name,
-        ph: "X",
+        ph: "E",
         pid: 0,
         tid,
-        ts: start_ts,
-        dur: Some(end_ts - start_ts),
+        ts: end_ts,
+        dur: None,
         bp: None,
         id: None,
         arg: None,
+        cname,
     });
-
-    if !last_time {
-        write_record(&Record {
-            cat: "polling",
-            name: task_name,
-            ph: "s",
-            pid: 0,
-            tid,
-            ts: end_ts,
-            dur: None,
-            bp: None,
-            id: Some(task_id),
-            arg: None,
-        });
-    }
 }
 
 pub fn log_wake_up(task_name: &str, task_id: u64) {
@@ -69,13 +87,14 @@ pub fn log_wake_up(task_name: &str, task_id: u64) {
         id: None,
         bp: None,
         arg: None,
+        cname: None,
     });
 }
 
 fn write_record(record: &Record) {
-    let mut serialized = futures_diagnose_exec_common::to_string(&record).unwrap();
-    serialized.push(',');
-    FILE_OUT.lock().unwrap().write_all(&serialized.as_bytes()).unwrap();
+    let mut serialized = serde_json::to_vec(&record).unwrap();
+    serialized.extend_from_slice(b",\n");
+    FILE_OUT.lock().unwrap().write_all(&serialized).unwrap();
 }
 
 fn current_thread_id() -> u32 {
@@ -109,4 +128,7 @@ struct Record<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     bp: Option<&'a str>,
     arg: Option<serde_json::Value>,
+    /// Name of the color.
+    /// Possible values here: https://github.com/catapult-project/catapult/blob/11513e359cd60e369bbbd1f4f2ef648c1bccabd0/tracing/tracing/base/color_scheme.html#L29
+    cname: Option<&'a str>,
 }

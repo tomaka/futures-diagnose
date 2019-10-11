@@ -12,8 +12,8 @@ pub struct DiagnoseFuture<T> {
     /// The inner future doing the actual work.
     #[pin]
     inner: T,
-    /// Task we are manipulating.
-    task: futures_diagnose_exec_common::Task,
+    task_name: Cow<'static, str>,
+    task_id: u64,
     first_time_poll: bool,
 }
 
@@ -22,18 +22,13 @@ impl<T> DiagnoseFuture<T> {
         // TODO: hack, see doc of elapsed_since_abs_time
         crate::absolute_time::elapsed_since_abs_time(Instant::now());
 
-        let name = name.into();
-        let task = futures_diagnose_exec_common::Task {
-            name: name.to_string(), // TODO: optimize
-            id: {
+        DiagnoseFuture {
+            inner,
+            task_name: name.into(),
+            task_id: {
                 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
                 NEXT_ID.fetch_add(1, Ordering::Relaxed)
             },
-        };
-
-        DiagnoseFuture {
-            inner,
-            task,
             first_time_poll: true,
         }
     }
@@ -50,12 +45,12 @@ where
 
         let before = Instant::now();
         let outcome = {
-            let waker = ctxt_with_diag::waker_with_diag(cx.waker().clone(), this.task.clone());
+            let waker = ctxt_with_diag::waker_with_diag(cx.waker().clone(), this.task_name.clone(), *this.task_id);
             let mut cx = Context::from_waker(&waker);
             Future::poll(this.inner, &mut cx)
         };
         let after = Instant::now();
-        log_out::log_poll(&this.task.name, this.task.id, before, after, mem::replace(this.first_time_poll, false), outcome.is_ready());
+        log_out::log_poll(&this.task_name, *this.task_id, before, after, mem::replace(this.first_time_poll, false), outcome.is_ready());
         outcome
     }
 }
