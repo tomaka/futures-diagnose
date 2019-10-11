@@ -6,7 +6,6 @@ pub use fut_with_diag::DiagnoseFuture;
 
 mod absolute_time;
 mod ctxt_with_diag;
-mod current_task;
 mod fut_with_diag;
 mod log_out;
 

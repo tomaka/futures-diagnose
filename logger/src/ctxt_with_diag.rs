@@ -1,4 +1,4 @@
-use crate::{current_task, log_out};
+use crate::log_out;
 use std::{borrow::Cow, sync::Arc, task::Waker};
 
 /// Takes ownership of a `Waker`, and returns another `Waker` that wraps around it but with
@@ -17,10 +17,7 @@ struct WakerWithDiag {
 
 impl futures::task::ArcWake for WakerWithDiag {
     fn wake_by_ref(arc_self: &Arc<Self>) {
-        log_out::log(futures_diagnose_exec_common::MessageData::TaskWakeUp {
-            woken_up: arc_self.task.clone(),
-            waker: arc_self.task.clone(), // TODO: wrong
-        });
+        log_out::log_wake_up(&arc_self.task.name, arc_self.task.id);
         arc_self.inner.wake_by_ref();
     }
 }
