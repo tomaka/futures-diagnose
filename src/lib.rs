@@ -20,6 +20,17 @@ pub trait FutureExt: Future {
 
 impl<T> FutureExt for T where T: Future {}
 
+pub trait Future01Ext: futures01::Future {
+    fn with_diagnostics(self, name: impl Into<Cow<'static, str>>) -> DiagnoseFuture<Self>
+    where
+        Self: Sized,
+    {
+        DiagnoseFuture::new(self, name)
+    }
+}
+
+impl<T> Future01Ext for T where T: futures01::Future {}
+
 /// Wraps around a `T` and provides lots of diagnostics about tasks spawned through it.
 pub struct DiagSpawn<T> {
     inner: T,
