@@ -1,9 +1,9 @@
 use crate::{ctxt_with_diag, log_out};
 use pin_project::pin_project;
-use std::{fmt, mem};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use std::{borrow::Cow, future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
+use std::{fmt, mem};
 
 /// Wraps around `Future` and adds diagnostics to it.
 #[pin_project]
@@ -45,12 +45,23 @@ where
 
         let before = Instant::now();
         let outcome = {
-            let waker = ctxt_with_diag::waker_with_diag(cx.waker().clone(), this.task_name.clone(), *this.task_id);
+            let waker = ctxt_with_diag::waker_with_diag(
+                cx.waker().clone(),
+                this.task_name.clone(),
+                *this.task_id,
+            );
             let mut cx = Context::from_waker(&waker);
             Future::poll(this.inner, &mut cx)
         };
         let after = Instant::now();
-        log_out::log_poll(&this.task_name, *this.task_id, before, after, mem::replace(this.first_time_poll, false), outcome.is_ready());
+        log_out::log_poll(
+            &this.task_name,
+            *this.task_id,
+            before,
+            after,
+            mem::replace(this.first_time_poll, false),
+            outcome.is_ready(),
+        );
         outcome
     }
 }
@@ -71,7 +82,14 @@ where
             Ok(futures01::Async::NotReady) => false,
             Err(_) => true,
         };
-        log_out::log_poll(&self.task_name, self.task_id, before, after, mem::replace(&mut self.first_time_poll, false), last_time);
+        log_out::log_poll(
+            &self.task_name,
+            self.task_id,
+            before,
+            after,
+            mem::replace(&mut self.first_time_poll, false),
+            last_time,
+        );
         outcome
     }
 }

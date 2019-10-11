@@ -2,19 +2,27 @@
 
 use crate::absolute_time;
 use serde::Serialize;
-use std::{fs::File, io::Write, sync::Mutex, time::Instant};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::{fs::File, io::Write, sync::Mutex, time::Instant};
 
-pub fn log_poll(task_name: &str, task_id: u64, start: Instant, end: Instant, first_time: bool, last_time: bool) {
+pub fn log_poll(
+    task_name: &str,
+    task_id: u64,
+    start: Instant,
+    end: Instant,
+    first_time: bool,
+    last_time: bool,
+) {
     let tid = current_thread_id();
     let start_ts = absolute_time::elapsed_since_abs_time(start) / 1_000;
     let end_ts = absolute_time::elapsed_since_abs_time(end) / 1_000;
 
-    let cname = None;/*match end_ts - start_ts {
-        0 ..= 999 => Some("good"),
-        1_000 ..= 19_999 => Some("bad"),
-        _ => Some("terrible"),
-    };*/    // TODO: colors end up being unreadable
+    let cname = None; /*match end_ts - start_ts {
+                          0 ..= 999 => Some("good"),
+                          1_000 ..= 19_999 => Some("bad"),
+                          _ => Some("terrible"),
+                      };*/
+ // TODO: colors end up being unreadable
 
     write_record(&Record {
         cat: "polling",
@@ -44,11 +52,7 @@ pub fn log_poll(task_name: &str, task_id: u64, start: Instant, end: Instant, fir
             },
             pid: 0,
             tid,
-            ts: if first_time {
-                end_ts
-            } else {
-                start_ts
-            },
+            ts: if first_time { end_ts } else { start_ts },
             dur: None,
             bp: Some("e"),
             id: Some(task_id),

@@ -4,7 +4,11 @@ use std::{borrow::Cow, sync::Arc, task::Waker};
 /// Takes ownership of a `Waker`, and returns another `Waker` that wraps around it but with
 /// logging.
 pub(crate) fn waker_with_diag(waker: Waker, task_name: Cow<'static, str>, task_id: u64) -> Waker {
-    futures::task::waker(Arc::new(WakerWithDiag { inner: waker, task_name, task_id }))
+    futures::task::waker(Arc::new(WakerWithDiag {
+        inner: waker,
+        task_name,
+        task_id,
+    }))
 }
 
 /// Wraps around a `Waker` and logs a message every time the task is waken up.
