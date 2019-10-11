@@ -5,9 +5,6 @@ use serde::Serialize;
 use std::{fs::File, io::Write, sync::Mutex, time::Instant};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-const LEVEL: log::Level = log::Level::Debug;
-const TARGET: &str = "futures-profile";
-
 pub fn log_poll(task_name: &str, task_id: u64, start: Instant, end: Instant, first_time: bool, last_time: bool) {
     let tid = current_thread_id();
     let start_ts = absolute_time::elapsed_since_abs_time(start) / 1_000;

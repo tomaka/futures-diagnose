@@ -6,6 +6,7 @@ edition = "2018"
 description = "Wraps around a Spawn and provides lots of diagnostics"
 
 [dependencies]
+futures01 = { package = "futures", version = "0.1" }
 futures-preview = "0.3.0-alpha.18"
 lazy_static = "1.4.0"
 log = "0.4.8"

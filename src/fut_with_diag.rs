@@ -55,6 +55,27 @@ where
     }
 }
 
+impl<T> futures01::Future for DiagnoseFuture<T>
+where
+    T: futures01::Future,
+{
+    type Item = T::Item;
+    type Error = T::Error;
+
+    fn poll(&mut self) -> futures01::Poll<Self::Item, Self::Error> {
+        let before = Instant::now();
+        let outcome = self.inner.poll();
+        let after = Instant::now();
+        let last_time = match outcome {
+            Ok(futures01::Async::Ready(_)) => true,
+            Ok(futures01::Async::NotReady) => false,
+            Err(_) => true,
+        };
+        log_out::log_poll(&self.task_name, self.task_id, before, after, mem::replace(&mut self.first_time_poll, false), last_time);
+        outcome
+    }
+}
+
 impl<T> fmt::Debug for DiagnoseFuture<T>
 where
     T: fmt::Debug,
