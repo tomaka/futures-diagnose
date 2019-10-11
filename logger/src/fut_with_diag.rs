@@ -2,6 +2,7 @@ use crate::{ctxt_with_diag, current_task, log_out};
 use pin_project::pin_project;
 use std::fmt;
 use std::{borrow::Cow, future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 /// Wraps around `Future` and adds diagnostics to it.
@@ -22,7 +23,10 @@ impl<T> DiagnoseFuture<T> {
         let name = name.into();
         let task = futures_diagnose_exec_common::Task {
             name: name.to_string(),       // TODO: optimize
-            id: 0,      // FIXME:
+            id: {
+                static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+                NEXT_ID.fetch_add(1, Ordering::Relaxed)
+            }
         };
         log_out::log(futures_diagnose_exec_common::MessageData::TaskStart(task.clone()));
 
