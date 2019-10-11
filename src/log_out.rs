@@ -109,7 +109,9 @@ fn current_thread_id() -> u32 {
 
 lazy_static::lazy_static! {
     static ref FILE_OUT: Mutex<File> = {
-        Mutex::new(File::create("profile.json").unwrap())
+        let mut file = File::create("profile.json").unwrap();
+        file.write_all(b"[\n").unwrap();
+        Mutex::new(file)
     };
 }
 
@@ -130,5 +132,6 @@ struct Record<'a> {
     arg: Option<serde_json::Value>,
     /// Name of the color.
     /// Possible values here: https://github.com/catapult-project/catapult/blob/11513e359cd60e369bbbd1f4f2ef648c1bccabd0/tracing/tracing/base/color_scheme.html#L29
+    #[serde(skip_serializing_if = "Option::is_none")]
     cname: Option<&'a str>,
 }
