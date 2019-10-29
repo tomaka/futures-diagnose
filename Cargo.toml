@@ -10,6 +10,7 @@ futures01 = { package = "futures", version = "0.1" }
 futures-preview = "0.3.0-alpha.18"
 lazy_static = "1.4.0"
 log = "0.4.8"
+parking_lot = "0.9.0"
 # TODO: we use an old version because of a Cargo issue with dependencies resolution in the project
 # that uses futures-diagnose-exec
 pin-project = "0.4.0-alpha.7"

@@ -2,8 +2,12 @@
 
 use crate::absolute_time;
 use serde::Serialize;
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::{fs::File, io::Write, sync::Mutex, time::Instant};
+use std::{fs::{self, File}, io::{self, Write as _}, path::{Path, PathBuf}, time::{Duration, Instant}};
+
+/// Interval at which logs rotate.
+const LOGS_ROTATION: Duration = Duration::from_secs(30);
 
 pub fn log_poll(
     task_name: &str,
@@ -92,12 +96,6 @@ pub fn log_wake_up(task_name: &str, task_id: u64) {
     });
 }
 
-fn write_record(record: &Record) {
-    let mut serialized = serde_json::to_vec(&record).unwrap();
-    serialized.extend_from_slice(b",\n");
-    FILE_OUT.lock().unwrap().write_all(&serialized).unwrap();
-}
-
 fn current_thread_id() -> u32 {
     lazy_static::lazy_static! {
         static ref NEXT_THREAD_ID: AtomicU32 = AtomicU32::new(0);
@@ -108,12 +106,53 @@ fn current_thread_id() -> u32 {
     THREAD_ID.with(|id| *id)
 }
 
+fn write_record(record: &Record) {
+    let mut serialized = serde_json::to_vec(&record).unwrap();
+    serialized.extend_from_slice(b",\n");
+
+    let mut output = OUTPUT.lock();
+    if output.next_rotation <= Instant::now() {
+        // Note: we don't write `]` at the end of the file because the latest entry contains
+        // a trailing coma, which would lead to invalid JSON.
+        output.file.sync_all().unwrap();
+
+        let source_path = output.out_directory.join("profile.json");
+        fs::rename(&source_path, output.out_directory.join(format!("profile.{}.json", output.next_filename_suffix))).unwrap();
+        output.file = File::create(&source_path).unwrap();
+        output.file.write_all(b"[\n").unwrap();
+
+        output.next_filename_suffix += 1;
+        output.next_rotation += LOGS_ROTATION;
+    }
+
+    output.file.write_all(&serialized).unwrap();
+}
+
 lazy_static::lazy_static! {
-    static ref FILE_OUT: Mutex<File> = {
-        let mut file = File::create("profile.json").unwrap();
+    static ref OUTPUT: Mutex<OutputState> = {
+        let out_directory = Path::new("profiles").to_owned();
+        match fs::create_dir(&out_directory) {
+            Ok(()) => {}
+            Err(ref err) if err.kind() == io::ErrorKind::AlreadyExists => {},
+            Err(err) => panic!("{:?}", err),
+        };
+
+        let mut file = File::create(out_directory.join("profile.json")).unwrap();
         file.write_all(b"[\n").unwrap();
-        Mutex::new(file)
+        Mutex::new(OutputState {
+            file,
+            out_directory,
+            next_filename_suffix: 0,
+            next_rotation: Instant::now() + LOGS_ROTATION,
+        })
     };
+}
+
+struct OutputState {
+    file: File,
+    out_directory: PathBuf,
+    next_filename_suffix: u32,
+    next_rotation: Instant,
 }
 
 #[derive(Serialize)]
