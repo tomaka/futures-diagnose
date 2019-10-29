@@ -1,10 +1,15 @@
 //! Output a log entry.
 
 use crate::absolute_time;
-use serde::Serialize;
 use parking_lot::Mutex;
+use serde::Serialize;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::{fs::{self, File}, io::{self, Write as _}, path::{Path, PathBuf}, time::{Duration, Instant}};
+use std::{
+    fs::{self, File},
+    io::{self, Write as _},
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 
 /// Interval at which logs rotate.
 const LOGS_ROTATION: Duration = Duration::from_secs(30);
@@ -26,7 +31,7 @@ pub fn log_poll(
                           1_000 ..= 19_999 => Some("bad"),
                           _ => Some("terrible"),
                       };*/
- // TODO: colors end up being unreadable
+    // TODO: colors end up being unreadable
 
     write_record(&Record {
         cat: "polling",
@@ -117,7 +122,13 @@ fn write_record(record: &Record) {
         output.file.sync_all().unwrap();
 
         let source_path = output.out_directory.join("profile.json");
-        fs::rename(&source_path, output.out_directory.join(format!("profile.{}.json", output.next_filename_suffix))).unwrap();
+        fs::rename(
+            &source_path,
+            output
+                .out_directory
+                .join(format!("profile.{}.json", output.next_filename_suffix)),
+        )
+        .unwrap();
         output.file = File::create(&source_path).unwrap();
         output.file.write_all(b"[\n").unwrap();
 
