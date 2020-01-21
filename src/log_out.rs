@@ -5,15 +5,30 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::{
+    env,
     fs::{self, File},
     io::{self, Write as _},
-    path::{Path, PathBuf},
+    path::PathBuf,
     time::{Duration, Instant},
 };
 
-/// Interval at which logs rotate.
+/// Interval at which logs rotate between files.
 const LOGS_ROTATION: Duration = Duration::from_secs(30);
 
+/// Returns true if logging is enabled.
+pub fn is_enabled() -> bool {
+    *LOGGING_ENABLED
+}
+
+/// Produce a single log entry about a call to `Future::poll`.
+///
+/// - `task_id` must be a unique identifier. Used to distinguish multiple tasks with the same
+///   name.
+/// - `start` and `end` are the `Instant`s when we respectively entered and left the `poll`
+///   method.
+/// - `first_time` must be true if this is the first time ever that `Future` is polled.
+/// - `last_time` must be true if the `Future` has ended as a result of this `poll`.
+///
 pub fn log_poll(
     task_name: &str,
     task_id: u64,
@@ -22,6 +37,10 @@ pub fn log_poll(
     first_time: bool,
     last_time: bool,
 ) {
+    if !is_enabled() {
+        return;
+    }
+
     let tid = current_thread_id();
     let start_ts = absolute_time::elapsed_since_abs_time(start) / 1_000;
     let end_ts = absolute_time::elapsed_since_abs_time(end) / 1_000;
@@ -85,7 +104,14 @@ pub fn log_poll(
     });
 }
 
+/// Produce a single log entry about a call to `Waker::wake` or `Waker::wake_by_ref`.
+///
+/// `task_name` and `task_id` are the task that is being woken up.
 pub fn log_wake_up(task_name: &str, task_id: u64) {
+    if !is_enabled() {
+        return;
+    }
+
     write_record(&Record {
         cat: "wakeup",
         name: task_name,
@@ -101,6 +127,8 @@ pub fn log_wake_up(task_name: &str, task_id: u64) {
     });
 }
 
+/// Returns a unique number identifying the current thread. The number is used to differentiate
+/// between threads and doesn't have any meaning per se.
 fn current_thread_id() -> u32 {
     lazy_static::lazy_static! {
         static ref NEXT_THREAD_ID: AtomicU32 = AtomicU32::new(0);
@@ -111,11 +139,17 @@ fn current_thread_id() -> u32 {
     THREAD_ID.with(|id| *id)
 }
 
+/// Write out a single record.
 fn write_record(record: &Record) {
     let mut serialized = serde_json::to_vec(&record).unwrap();
     serialized.extend_from_slice(b",\n");
 
     let mut output = OUTPUT.lock();
+    let output = match output.as_mut() {
+        Some(o) => o,
+        None => return,
+    };
+
     if output.next_rotation <= Instant::now() {
         // Note: we don't write `]` at the end of the file because the latest entry contains
         // a trailing coma, which would lead to invalid JSON.
@@ -140,8 +174,15 @@ fn write_record(record: &Record) {
 }
 
 lazy_static::lazy_static! {
-    static ref OUTPUT: Mutex<OutputState> = {
-        let out_directory = Path::new("profiles").to_owned();
+    static ref LOGGING_ENABLED: bool = env::var_os("PROFILE_DIR").is_some();
+
+    static ref OUTPUT: Mutex<Option<OutputState>> = {
+        let out_directory = if let Some(v) = env::var_os("PROFILE_DIR") {
+            PathBuf::from(v)
+        } else {
+            return Mutex::new(None)
+        };
+
         match fs::create_dir(&out_directory) {
             Ok(()) => {}
             Err(ref err) if err.kind() == io::ErrorKind::AlreadyExists => {},
@@ -150,12 +191,12 @@ lazy_static::lazy_static! {
 
         let mut file = File::create(out_directory.join("profile.json")).unwrap();
         file.write_all(b"[\n").unwrap();
-        Mutex::new(OutputState {
+        Mutex::new(Some(OutputState {
             file,
             out_directory,
             next_filename_suffix: 0,
             next_rotation: Instant::now() + LOGS_ROTATION,
-        })
+        }))
     };
 }
 

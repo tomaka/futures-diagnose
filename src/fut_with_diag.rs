@@ -2,8 +2,23 @@ use crate::{ctxt_with_diag, log_out};
 use pin_project::pin_project;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
-use std::{borrow::Cow, future::Future, pin::Pin, task::Context, task::Poll, thread::ThreadId};
-use std::{fmt, mem};
+use std::{borrow::Cow, fmt, future::Future, mem, pin::Pin, task::Context, task::Poll};
+
+/// Wraps around a `Future` and adds diagnostics.
+pub fn diagnose<T>(name: impl Into<Cow<'static, str>>, inner: T) -> DiagnoseFuture<T> {
+    // TODO: hack, see doc of elapsed_since_abs_time
+    crate::absolute_time::elapsed_since_abs_time(Instant::now());
+
+    DiagnoseFuture {
+        inner,
+        task_name: name.into(),
+        task_id: {
+            static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+            NEXT_ID.fetch_add(1, Ordering::Relaxed)
+        },
+        first_time_poll: true,
+    }
+}
 
 /// Wraps around `Future` and adds diagnostics to it.
 #[pin_project]
@@ -17,34 +32,17 @@ pub struct DiagnoseFuture<T> {
     first_time_poll: bool,
 }
 
-impl<T> DiagnoseFuture<T> {
-    pub fn new(inner: T, name: impl Into<Cow<'static, str>>) -> Self {
-        // TODO: hack, see doc of elapsed_since_abs_time
-        crate::absolute_time::elapsed_since_abs_time(Instant::now());
-
-        DiagnoseFuture {
-            inner,
-            task_name: name.into(),
-            task_id: {
-                static NEXT_ID: AtomicU64 = AtomicU64::new(0);
-                NEXT_ID.fetch_add(1, Ordering::Relaxed)
-            },
-            first_time_poll: true,
-        }
-    }
-}
-
 impl<T> Future for DiagnoseFuture<T>
 where
     T: Future,
 {
     type Output = T::Output;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
 
         let before = Instant::now();
-        let outcome = {
+        let outcome = if log_out::is_enabled() {
             let waker = ctxt_with_diag::waker_with_diag(
                 cx.waker().clone(),
                 this.task_name.clone(),
@@ -52,6 +50,8 @@ where
             );
             let mut cx = Context::from_waker(&waker);
             Future::poll(this.inner, &mut cx)
+        } else {
+            Future::poll(this.inner, cx)
         };
         let after = Instant::now();
         log_out::log_poll(
