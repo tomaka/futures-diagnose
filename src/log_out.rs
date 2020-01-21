@@ -107,7 +107,7 @@ pub fn log_poll(
 /// Produce a single log entry about a call to `Waker::wake` or `Waker::wake_by_ref`.
 ///
 /// `task_name` and `task_id` are the task that is being woken up.
-pub fn log_wake_up(task_name: &str, task_id: u64) {
+pub fn log_wake_up(task_name: &str, _task_id: u64) {
     if !is_enabled() {
         return;
     }
