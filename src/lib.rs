@@ -73,9 +73,8 @@ where
     T: Spawn,
 {
     fn spawn_obj(&self, future: FutureObj<'static, ()>) -> Result<(), SpawnError> {
-        /*let wrapped = Box::pin(fut_with_diag::DiagnoseFuture::new(future));
-        self.inner.spawn_obj(FutureObj::from(wrapped))*/
-        unimplemented!()
+        let wrapped = diagnose("unnamed", future);
+        self.inner.spawn_obj(From::from(Box::pin(wrapped)))
     }
 
     fn status(&self) -> Result<(), SpawnError> {
