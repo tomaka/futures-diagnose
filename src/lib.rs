@@ -72,7 +72,7 @@ impl<T> Spawn for DiagSpawn<T>
 where
     T: Spawn,
 {
-    fn spawn_obj(&mut self, future: FutureObj<'static, ()>) -> Result<(), SpawnError> {
+    fn spawn_obj(&self, future: FutureObj<'static, ()>) -> Result<(), SpawnError> {
         /*let wrapped = Box::pin(fut_with_diag::DiagnoseFuture::new(future));
         self.inner.spawn_obj(FutureObj::from(wrapped))*/
         unimplemented!()
@@ -80,16 +80,5 @@ where
 
     fn status(&self) -> Result<(), SpawnError> {
         self.inner.status()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::DiagSpawn;
-    use futures::executor::ThreadPool;
-
-    #[test]
-    fn basic() {
-        let diag_spawn = DiagSpawn::new(ThreadPool::new().unwrap());
     }
 }
