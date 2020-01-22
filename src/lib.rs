@@ -23,12 +23,12 @@
 //! # Usage
 //!
 //! ```
-//! futures::executor::block_on(futures_diagnose_exec::diagnose("task-name", async move {
+//! futures::executor::block_on(futures_diagnose::diagnose("task-name", async move {
 //!     // ...
 //! }))
 //! ```
 //!
-//! Wrap all your futures into `futures_diagnose_exec::diagnose`. Then launch your program with
+//! Wrap all your futures into `futures_diagnose::diagnose`. Then launch your program with
 //! the `PROFILE_DIR` environment variable set to a path name. CPU profiling will automatically
 //! be performed and JSON files written in the target directory.
 //!

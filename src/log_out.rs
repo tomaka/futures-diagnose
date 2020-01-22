@@ -29,6 +29,7 @@ use std::{
     fs::{self, File},
     io::{self, Write as _},
     path::PathBuf,
+    process,
     time::{Duration, Instant},
 };
 
@@ -180,7 +181,7 @@ fn write_record(record: &Record) {
             &source_path,
             output
                 .out_directory
-                .join(format!("profile.{}.json", output.next_filename_suffix)),
+                .join(format!("profile.{}.{}.json", process::id(), output.next_filename_suffix)),
         )
         .unwrap();
         output.file = File::create(&source_path).unwrap();
