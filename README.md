@@ -17,8 +17,8 @@ Then whenever you create a `Future`, append `.with_diagnostics("name")`. For exa
 async_std::spawn(future.with_diagnostics("my-task-name"))
 ```
 
-Then, run your code. A `profile.json` file will be generated in the current working directory.
-(TODO: it is highly likely that in the future one will control that through an environment
-variable, so if you don't find the file it's likely that we forgot to update this README)
+Set the environment variable `PROFILE_DIR` to a directory of your choice (e.g.
+`profile`) and then, run your code. A `profile.json` file will be generated in
+the directory set beforehand.
 
 Then, open Chrome and go to the URL `chrome://tracing`, and load the `profile.json`.
