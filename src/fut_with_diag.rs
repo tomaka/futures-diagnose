@@ -61,19 +61,22 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
 
+        if !log_out::is_enabled() {
+            return Future::poll(this.inner, cx);
+        }
+
         let before = Instant::now();
-        let outcome = if log_out::is_enabled() {
-            let waker = ctxt_with_diag::waker_with_diag(
-                cx.waker().clone(),
-                this.task_name.clone(),
-                *this.task_id,
-            );
-            let mut cx = Context::from_waker(&waker);
-            Future::poll(this.inner, &mut cx)
-        } else {
-            Future::poll(this.inner, cx)
-        };
+
+        let waker = ctxt_with_diag::waker_with_diag(
+            cx.waker().clone(),
+            this.task_name.clone(),
+            *this.task_id,
+        );
+        let mut cx = Context::from_waker(&waker);
+        let outcome = Future::poll(this.inner, &mut cx);
+
         let after = Instant::now();
+
         log_out::log_poll(
             &this.task_name,
             *this.task_id,
@@ -82,6 +85,7 @@ where
             mem::replace(this.first_time_poll, false),
             outcome.is_ready(),
         );
+
         outcome
     }
 }
