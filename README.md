@@ -22,3 +22,11 @@ Set the environment variable `PROFILE_DIR` to a directory of your choice (e.g.
 the directory set beforehand.
 
 Then, open Chrome and go to the URL `chrome://tracing`, and load the `profile.json`.
+
+# FAQ
+
+- Chrome tells me `chrome://tracing` "can't be reached".
+
+  Chromium shipped with recent Debian versions has the tracing feature disabled.
+  See the [Debian bug
+  report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=922431) for details.
