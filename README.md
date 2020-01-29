@@ -18,8 +18,8 @@ async_std::spawn(future.with_diagnostics("my-task-name"))
 ```
 
 Set the environment variable `PROFILE_DIR` to a directory of your choice (e.g.
-`profile`) and then, run your code. A `profile.json` file will be generated in
-the directory set beforehand.
+`profile`) and then, run your code. Files named `profile.<pid>.<num>.json` will
+be generated in the directory set beforehand.
 
 Then, open Chrome and go to the URL `chrome://tracing`, and load the `profile.json`.
 
