@@ -189,7 +189,7 @@ fn write_record(record: &Record) {
         output.file.write_all(b"[\n").unwrap();
 
         output.next_filename_suffix += 1;
-        output.next_rotation += LOGS_ROTATION;
+        output.next_rotation = output.next_rotation + LOGS_ROTATION;
     }
 
     output.file.write_all(&serialized).unwrap();
