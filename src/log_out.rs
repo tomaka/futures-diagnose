@@ -30,8 +30,9 @@ use std::{
     io::{self, Write as _},
     path::PathBuf,
     process,
-    time::{Duration, Instant},
+    time::Duration,
 };
+use wasm_timer::Instant;
 
 /// Interval at which logs rotate between files.
 const LOGS_ROTATION: Duration = Duration::from_secs(30);

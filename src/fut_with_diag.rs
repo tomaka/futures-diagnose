@@ -21,7 +21,7 @@
 use crate::{ctxt_with_diag, log_out};
 use pin_project::pin_project;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
+use wasm_timer::Instant;
 use std::{borrow::Cow, fmt, future::Future, mem, pin::Pin, task::Context, task::Poll};
 
 /// Wraps around a `Future` and adds diagnostics.
