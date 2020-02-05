@@ -1,6 +1,6 @@
 [package]
 name = "futures-diagnose"
-version = "1.0.0"
+version = "1.0.1"
 license = "MIT"
 authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
 edition = "2018"
