@@ -18,8 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-use std::time::Duration;
-use wasm_timer::Instant;
+use std::time::{Duration, Instant};
 
 /// Returns the number of nanoseconds that have elapsed between `time` and the first time this
 /// function has been called in the program ever.

@@ -30,9 +30,8 @@ use std::{
     io::{self, Write as _},
     path::PathBuf,
     process,
-    time::Duration,
+    time::{Duration, Instant},
 };
-use wasm_timer::Instant;
 
 /// Interval at which logs rotate between files.
 const LOGS_ROTATION: Duration = Duration::from_secs(30);
@@ -189,7 +188,7 @@ fn write_record(record: &Record) {
         output.file.write_all(b"[\n").unwrap();
 
         output.next_filename_suffix += 1;
-        output.next_rotation = output.next_rotation + LOGS_ROTATION;
+        output.next_rotation += LOGS_ROTATION;
     }
 
     output.file.write_all(&serialized).unwrap();
