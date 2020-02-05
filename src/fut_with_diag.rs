@@ -26,8 +26,10 @@ use std::{borrow::Cow, fmt, future::Future, mem, pin::Pin, task::Context, task::
 
 /// Wraps around a `Future` and adds diagnostics.
 pub fn diagnose<T>(name: impl Into<Cow<'static, str>>, inner: T) -> DiagnoseFuture<T> {
-    // TODO: hack, see doc of elapsed_since_abs_time
-    crate::absolute_time::elapsed_since_abs_time(Instant::now());
+    if log_out::is_enabled() {
+        // TODO: hack, see doc of elapsed_since_abs_time
+        crate::absolute_time::elapsed_since_abs_time(Instant::now());
+    }
 
     DiagnoseFuture {
         inner,
@@ -98,6 +100,10 @@ where
     type Error = T::Error;
 
     fn poll(&mut self) -> futures01::Poll<Self::Item, Self::Error> {
+        if !log_out::is_enabled() {
+            return self.inner.poll();
+        }
+
         let before = Instant::now();
         let outcome = self.inner.poll();
         let after = Instant::now();
